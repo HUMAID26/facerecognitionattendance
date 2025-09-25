@@ -1,0 +1,10 @@
+flask
+flask-cors
+numpy
+tensorflow
+scikit-learn
+mtcnn
+keras
+pytz
+gunicorn
+opencv-python-headless
