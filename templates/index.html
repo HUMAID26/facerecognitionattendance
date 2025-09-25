@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartFace Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .nav-link.active { background-color: #e0e7ff; color: #4338ca; font-weight: 600; }
+        .nav-link.active svg { stroke: #4338ca; }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .calendar-day { transition: all 0.2s ease; }
+        .calendar-day.selected { background-color: #4f46e5; color: white; font-weight: bold; }
+        .calendar-day.today { border: 2px solid #4f46e5; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #e2e8f0; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
+        .modal-content { animation: modal-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes modal-pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="flex h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+            <div class="h-16 flex items-center justify-center px-4 border-b border-slate-200">
+                <div class="flex items-center space-x-3">
+                    <svg class="h-8 w-8 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                    <h1 class="text-xl font-bold">SmartFace</h1>
+                </div>
+            </div>
+            <nav class="flex-1 px-4 py-4 space-y-2">
+                <a href="#attendance" class="nav-link flex items-center px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                    <i data-feather="check-square" class="w-5 h-5 mr-3"></i> Attendance
+                </a>
+                <a href="#students" class="nav-link flex items-center px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                    <i data-feather="users" class="w-5 h-5 mr-3"></i> Students
+                </a>
+                <a href="#live" class="nav-link flex items-center px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                    <i data-feather="video" class="w-5 h-5 mr-3"></i> Live Camera
+                </a>
+            </nav>
+            <div id="current-time-container" class="px-4 py-4 border-t border-slate-200 text-center text-sm text-slate-500"></div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto p-8">
+            <!-- Attendance Page -->
+            <div id="attendance" class="page-content">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 fade-in">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                            <h2 class="text-2xl font-bold">Attendance Records</h2>
+                            <h3 id="selected-date-display" class="font-semibold text-indigo-600"></h3>
+                        </div>
+                        <div id="attendance-table-container" class="overflow-auto" style="max-height: 70vh;"></div>
+                    </div>
+                    <div class="lg:col-span-1 flex flex-col gap-8">
+                        <div id="calendar-container" class="bg-white p-6 rounded-xl border border-slate-200 fade-in" style="animation-delay: 0.1s;"></div>
+                        <div id="summary-container" class="bg-white p-6 rounded-xl border border-slate-200 fade-in" style="animation-delay: 0.2s;">
+                           <h3 class="text-lg font-semibold text-slate-700 mb-4">Daily Summary</h3>
+                           <div class="relative h-60"><canvas id="summary-chart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Students Page -->
+            <div id="students" class="page-content hidden">
+                 <div class="bg-white p-6 rounded-xl border border-slate-200 fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Student Management</h2>
+                        <button id="add-student-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition flex items-center gap-2">
+                            <i data-feather="plus" class="w-5 h-5"></i> Add Student
+                        </button>
+                    </div>
+                    <div id="students-table-container" class="overflow-auto" style="max-height: 75vh;"></div>
+                </div>
+            </div>
+
+            <!-- Live Camera Page -->
+            <div id="live" class="page-content hidden">
+                <div class="bg-white p-6 rounded-xl border border-slate-200 fade-in">
+                    <h2 class="text-2xl font-bold mb-4 text-center">Live Recognition Feed</h2>
+                    <div class="aspect-video max-w-4xl mx-auto rounded-lg overflow-hidden mb-6 border-4 border-slate-200 bg-black flex items-center justify-center">
+                        <img id="video-feed" src="" alt="Video Feed" class="w-full h-auto hidden">
+                        <div id="video-placeholder" class="text-center text-slate-400">
+                            <i data-feather="video-off" class="mx-auto h-16 w-16"></i>
+                            <p class="mt-2">Camera is off</p>
+                        </div>
+                    </div>
+                    <div id="recognition-controls" class="flex items-center justify-center space-x-4"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Student Modal -->
+    <div id="student-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+        <div class="modal-content bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+            <h2 id="modal-title" class="text-2xl font-bold mb-6">Add New Student</h2>
+            <form id="student-form" class="space-y-4">
+                <div>
+                    <label for="student-id" class="block text-slate-700 font-semibold mb-1">Student ID</label>
+                    <input type="text" id="student-id" name="id" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required>
+                </div>
+                <div>
+                    <label for="student-name" class="block text-slate-700 font-semibold mb-1">Full Name</label>
+                    <input type="text" id="student-name" name="name" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required>
+                </div>
+                <div>
+                    <label for="student-photo" class="block text-slate-700 font-semibold mb-1">Student Photo</label>
+                    <input type="file" id="student-photo" name="photo" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" accept="image/*" required>
+                </div>
+                <div class="flex justify-end space-x-4 pt-4">
+                    <button type="button" id="cancel-student-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-4 rounded-lg transition">Cancel</button>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 right-5 bg-green-600 text-white py-3 px-6 rounded-lg shadow-xl hidden items-center gap-3 fade-in">
+        <i id="toast-icon" data-feather="check-circle" class="w-6 h-6"></i>
+        <p id="toast-message"></p>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- Application State ---
+    const state = {
+        selectedDate: new Date(),
+        recognitionActive: false,
+        lastAttendanceCounts: { present: null, absent: null }, // Store last counts to prevent unnecessary chart re-renders
+    };
+
+    // --- UI Elements ---
+    const ui = {
+        pages: document.querySelectorAll('.page-content'),
+        navLinks: document.querySelectorAll('.nav-link'),
+        timeContainer: document.getElementById('current-time-container'),
+        calendarContainer: document.getElementById('calendar-container'),
+        attendanceTableContainer: document.getElementById('attendance-table-container'),
+        selectedDateDisplay: document.getElementById('selected-date-display'),
+        summaryChartCanvas: document.getElementById('summary-chart'),
+        studentsTableContainer: document.getElementById('students-table-container'),
+        studentModal: document.getElementById('student-modal'),
+        studentForm: document.getElementById('student-form'),
+        videoFeed: document.getElementById('video-feed'),
+        videoPlaceholder: document.getElementById('video-placeholder'),
+        recognitionControls: document.getElementById('recognition-controls'),
+        toast: document.getElementById('toast'),
+        toastMessage: document.getElementById('toast-message'),
+        toastIcon: document.getElementById('toast-icon'),
+    };
+    let summaryChart;
+
+    // --- Utility Functions ---
+    const util = {
+        toLocalDateString: (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        },
+        isSameDay: (d1, d2) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate(),
+        showToast: (message, isError = false) => {
+            ui.toast.classList.remove('hidden');
+            ui.toastMessage.textContent = message;
+            ui.toast.className = `fixed top-5 right-5 text-white py-3 px-6 rounded-lg shadow-xl flex items-center gap-3 fade-in ${isError ? 'bg-red-600' : 'bg-green-600'}`;
+            ui.toastIcon.setAttribute('data-feather', isError ? 'alert-circle' : 'check-circle');
+            feather.replace({ width: '24', height: '24' });
+            setTimeout(() => ui.toast.classList.add('hidden'), 3000);
+        }
+    };
+
+    // --- API Service ---
+    const api = {
+        async request(endpoint, options = {}) {
+            try {
+                const response = await fetch(endpoint, options);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'API request failed' }));
+                    throw new Error(errorData.message);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`API Error on ${endpoint}:`, error);
+                util.showToast(error.message, true);
+                return null;
+            }
+        },
+        getAttendance: (date) => api.request(`/api/attendance?date=${util.toLocalDateString(date)}`),
+        getStudents: () => api.request('/api/students'),
+        addStudent: (formData) => api.request('/api/students', { method: 'POST', body: formData }),
+        deleteStudent: (id) => api.request(`/api/students/${id}`, { method: 'DELETE' }),
+        setManualAttendance: (payload) => api.request('/api/attendance/manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }),
+        startRecognition: () => api.request('/api/recognition/start', { method: 'POST' }),
+        stopRecognition: () => api.request('/api/recognition/stop', { method: 'POST' }),
+    };
+
+    // --- Render Functions ---
+    const render = {
+        page: (hash) => {
+            const targetId = (hash || '#attendance').substring(1);
+            ui.pages.forEach(p => p.classList.toggle('hidden', p.id !== targetId));
+            ui.navLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === `#${targetId}`));
+        },
+        clock: () => {
+            const now = new Date();
+            ui.timeContainer.innerHTML = `
+                <div class="font-semibold">${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div class="text-xs">${now.toLocaleDateString('en-US', { weekday: 'long' })}</div>`;
+        },
+        calendar: () => {
+            const year = state.selectedDate.getFullYear();
+            const month = state.selectedDate.getMonth();
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); 
+            
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDayIndex = new Date(year, month, 1).getDay();
+
+            let daysHTML = Array(firstDayIndex).fill('<div class="p-2"></div>').join('');
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const isSelected = util.isSameDay(date, state.selectedDate);
+                const isToday = util.isSameDay(date, today);
+                const isFuture = date > today;
+
+                daysHTML += `
+                    <button data-date="${util.toLocalDateString(date)}" 
+                            class="calendar-day p-2 rounded-full ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${isFuture ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100'}"
+                            ${isFuture ? 'disabled' : ''}>
+                        ${day}
+                    </button>`;
+            }
+
+            ui.calendarContainer.innerHTML = `
+                <div class="flex items-center justify-between mb-4">
+                    <button id="prev-month" class="p-2 rounded-full hover:bg-slate-100"><i data-feather="chevron-left"></i></button>
+                    <h3 class="font-semibold text-lg">${monthNames[month]} ${year}</h3>
+                    <button id="next-month" class="p-2 rounded-full hover:bg-slate-100"><i data-feather="chevron-right"></i></button>
+                </div>
+                <div class="grid grid-cols-7 text-center text-xs text-slate-500 font-medium mb-2">
+                    ${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => `<div>${d}</div>`).join('')}
+                </div>
+                <div class="grid grid-cols-7 text-center text-sm">${daysHTML}</div>`;
+            feather.replace();
+        },
+        // FIX: Separated table rendering from chart rendering
+        attendanceTable: (records) => {
+            if (!records) {
+                ui.attendanceTableContainer.innerHTML = `<p class="text-center p-8 text-slate-500">Could not load attendance data.</p>`;
+                return;
+            }
+            if (records.length === 0) {
+                ui.attendanceTableContainer.innerHTML = `<p class="text-center p-8 text-slate-500">No student records for this date.</p>`;
+            } else {
+                ui.attendanceTableContainer.innerHTML = `
+                    <table class="w-full text-left">
+                        <thead class="sticky top-0 bg-white">
+                            <tr class="bg-slate-50 border-b border-slate-200">
+                                <th class="p-4 font-semibold text-slate-600">Name</th>
+                                <th class="p-4 font-semibold text-slate-600">Status</th>
+                                <th class="p-4 font-semibold text-slate-600">Time</th>
+                                <th class="p-4 font-semibold text-slate-600 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${records.map(r => `
+                                <tr class="border-b border-slate-200 hover:bg-slate-50">
+                                    <td class="p-4 font-medium">${r.name}</td>
+                                    <td class="p-4">
+                                        <span class="px-3 py-1 text-xs font-semibold rounded-full ${r.status === 'Present' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${r.status}</span>
+                                    </td>
+                                    <td class="p-4 text-slate-600">${r.time || 'N/A'}</td>
+                                    <td class="p-4 text-right">
+                                        <button data-id="${r.id}" data-status="Present" class="manual-mark-btn text-green-600 hover:underline text-sm font-semibold">Mark Present</button> |
+                                        <button data-id="${r.id}" data-status="Absent" class="manual-mark-btn text-red-600 hover:underline text-sm font-semibold">Mark Absent</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>`;
+            }
+        },
+        summaryChart: (presentCount, absentCount) => {
+            if (summaryChart) summaryChart.destroy();
+            summaryChart = new Chart(ui.summaryChartCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Present', 'Absent'],
+                    datasets: [{
+                        data: [presentCount, absentCount],
+                        backgroundColor: ['#10B981', '#EF4444'],
+                        borderColor: '#ffffff',
+                        borderWidth: 4,
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom' } } }
+            });
+        },
+        fullAttendance: (records) => {
+            if (!records) return;
+
+            // Always render the table
+            render.attendanceTable(records);
+            
+            // Check if chart data has changed before re-rendering it
+            const present = records.filter(r => r.status === 'Present').length;
+            const absent = records.length - present;
+
+            if (state.lastAttendanceCounts.present !== present || state.lastAttendanceCounts.absent !== absent) {
+                render.summaryChart(present, absent);
+                state.lastAttendanceCounts = { present, absent };
+                console.log("Chart updated due to count change.");
+            }
+            
+            ui.selectedDateDisplay.textContent = util.isSameDay(state.selectedDate, new Date()) ? 'Today' : state.selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        },
+        students: (students) => {
+            if (!students) {
+                ui.studentsTableContainer.innerHTML = `<p class="text-center p-8 text-slate-500">Could not load students.</p>`;
+                return;
+            }
+            if (students.length === 0) {
+                 ui.studentsTableContainer.innerHTML = `<p class="text-center p-8 text-slate-500">No students found. Add one to get started.</p>`;
+            } else {
+                ui.studentsTableContainer.innerHTML = `
+                <table class="w-full text-left">
+                    <thead class="sticky top-0 bg-white">
+                        <tr class="bg-slate-50 border-b border-slate-200">
+                            <th class="p-4 font-semibold text-slate-600">Student ID</th>
+                            <th class="p-4 font-semibold text-slate-600">Name</th>
+                            <th class="p-4 font-semibold text-slate-600 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${students.map(s => `
+                            <tr class="border-b border-slate-200 hover:bg-slate-50">
+                                <td class="p-4 font-mono text-slate-600">${s.id}</td>
+                                <td class="p-4 font-medium">${s.name}</td>
+                                <td class="p-4 text-right">
+                                    <button data-id="${s.id}" class="delete-student-btn text-red-500 hover:text-red-700 font-semibold">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+            }
+        },
+        recognitionControls: () => {
+            ui.recognitionControls.innerHTML = state.recognitionActive ? `
+                <button id="stop-recognition-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition shadow-md flex items-center gap-2"><i data-feather="stop-circle"></i>Stop Recognition</button>
+            ` : `
+                <button id="start-recognition-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition shadow-md flex items-center gap-2"><i data-feather="play-circle"></i>Start Recognition</button>
+            `;
+            feather.replace();
+        }
+    };
+
+    // --- Event Handlers & Logic ---
+    const handlers = {
+        navigate: () => render.page(window.location.hash),
+        updateAllData: async () => {
+            const [attendance, students] = await Promise.all([api.getAttendance(state.selectedDate), api.getStudents()]);
+            if(attendance) render.fullAttendance(attendance);
+            if(students) render.students(students);
+        },
+        handleCalendarClick: (e) => {
+            if (e.target.matches('.calendar-day[data-date]')) {
+                state.selectedDate = new Date(e.target.dataset.date + 'T00:00:00');
+                render.calendar();
+                api.getAttendance(state.selectedDate).then(render.fullAttendance);
+            } else if (e.target.closest('#prev-month')) {
+                state.selectedDate.setMonth(state.selectedDate.getMonth() - 1);
+                render.calendar();
+            } else if (e.target.closest('#next-month')) {
+                state.selectedDate.setMonth(state.selectedDate.getMonth() + 1);
+                render.calendar();
+            }
+        },
+        handleManualMark: async (e) => {
+            if (e.target.matches('.manual-mark-btn')) {
+                const { id, status } = e.target.dataset;
+                const result = await api.setManualAttendance({ student_id: id, status, date: util.toLocalDateString(state.selectedDate) });
+                if (result && result.success) {
+                    util.showToast(`Marked as ${status}`);
+                    const updatedAttendance = await api.getAttendance(state.selectedDate);
+                    if (updatedAttendance) render.fullAttendance(updatedAttendance);
+                }
+            }
+        },
+        showStudentModal: () => {
+            ui.studentForm.reset();
+            ui.studentModal.classList.remove('hidden');
+        },
+        hideStudentModal: () => ui.studentModal.classList.add('hidden'),
+        handleStudentSubmit: async (e) => {
+            e.preventDefault();
+            const formData = new FormData(ui.studentForm);
+            
+            const result = await api.addStudent(formData);
+            if (result && result.success) {
+                util.showToast(result.message);
+                handlers.hideStudentModal();
+                handlers.updateAllData();
+            }
+        },
+        handleStudentDelete: async (e) => {
+            if (e.target.matches('.delete-student-btn')) {
+                const id = e.target.dataset.id;
+                // No confirm dialog for streamlined environments
+                const result = await api.deleteStudent(id);
+                if (result && result.success) {
+                    util.showToast(result.message);
+                    handlers.updateAllData();
+                }
+            }
+        },
+        startRecognition: async () => {
+            const result = await api.startRecognition();
+            if (result && result.success) {
+                state.recognitionActive = true;
+                ui.videoPlaceholder.classList.add('hidden');
+                ui.videoFeed.classList.remove('hidden');
+                ui.videoFeed.src = `/video_feed?t=${new Date().getTime()}`;
+                render.recognitionControls();
+                util.showToast('Recognition started.');
+            }
+        },
+        stopRecognition: async () => {
+            const result = await api.stopRecognition();
+            if (result && result.success) {
+                state.recognitionActive = false;
+                ui.videoFeed.src = '';
+                ui.videoFeed.classList.add('hidden');
+                ui.videoPlaceholder.classList.remove('hidden');
+                render.recognitionControls();
+                util.showToast('Recognition stopped.');
+            }
+        },
+    };
+
+    // --- Initialization ---
+    function init() {
+        // Initial render
+        render.page(window.location.hash);
+        render.clock();
+        render.calendar();
+        render.recognitionControls();
+        handlers.updateAllData();
+        feather.replace();
+
+        // Setup event listeners
+        window.addEventListener('popstate', handlers.navigate);
+        ui.navLinks.forEach(link => link.addEventListener('click', (e) => {
+            e.preventDefault();
+            history.pushState(null, '', e.currentTarget.href);
+            handlers.navigate();
+        }));
+        
+        setInterval(render.clock, 1000); 
+        
+        // --- FINAL FIX: This is the guaranteed working automatic refresh timer ---
+        setInterval(() => {
+            // This checks if the attendance page is currently being displayed.
+            if (document.getElementById('attendance').offsetParent !== null) {
+                api.getAttendance(state.selectedDate).then(records => {
+                    if (records) {
+                        render.fullAttendance(records); // Use the new controller function
+                    }
+                });
+            }
+        }, 2000); // Refreshes every 2 seconds.
+
+        // Event delegation
+        ui.calendarContainer.addEventListener('click', handlers.handleCalendarClick);
+        ui.attendanceTableContainer.addEventListener('click', handlers.handleManualMark);
+        ui.studentsTableContainer.addEventListener('click', handlers.handleStudentDelete);
+        ui.recognitionControls.addEventListener('click', (e) => {
+            if (e.target.closest('#start-recognition-btn')) handlers.startRecognition();
+            if (e.target.closest('#stop-recognition-btn')) handlers.stopRecognition();
+        });
+
+        // Modal listeners
+        document.getElementById('add-student-btn').addEventListener('click', handlers.showStudentModal);
+        document.getElementById('cancel-student-btn').addEventListener('click', handlers.hideStudentModal);
+        ui.studentModal.addEventListener('click', (e) => { if (e.target === ui.studentModal) handlers.hideStudentModal(); });
+        ui.studentForm.addEventListener('submit', handlers.handleStudentSubmit);
+    }
+
+    init();
+});
+</script>
+</body>
+</html>
+
