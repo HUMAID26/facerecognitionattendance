@@ -65,6 +65,10 @@ class FaceAttendanceSystem:
 
     def _create_db_connection(self):
         try:
+            # FIX: Ensure the directory for the database file exists before connecting.
+            # This is crucial for environments like Railway where volumes are mounted.
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+
             # `check_same_thread=False` is needed for Flask's multi-threaded environment
             return sqlite3.connect(self.db_path, check_same_thread=False)
         except sqlite3.Error as e:
@@ -218,7 +222,7 @@ class FaceAttendanceSystem:
         """Saves or updates an attendance record for a specific date."""
         now = datetime.datetime.now(IST)
         
-        # If no date is provided, use today's date. This is for live recognition.
+        # If no date is provided, use today's date.
         if date_str is None:
             date_str = now.strftime("%Y-%m-%d")
 
@@ -385,4 +389,3 @@ if __name__ == '__main__':
     print("\n--- System is ready. Starting web server... ---")
     print("--- Access at: http://127.0.0.1:5000 ---")
     app.run(host='0.0.0.0', port=5000, debug=False)
-
